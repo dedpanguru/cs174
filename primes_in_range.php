@@ -33,7 +33,7 @@
                 // call the primesInRange function with the input numbers as arguments
                 $primes_as_string = $pf->primesInRange(intval($input[0]), intval($input[1]));
                 // output the result
-                strlen($primes_as_string) !== 0 ? print "All the primes in the range between '$input[0]' and '$input[1]' are: '$primes_as_string'<br>" : print " '$line' does not contain valid inputs!";
+                strlen($primes_as_string) !== 0 ? print "All the primes in the range between '$input[0]' and '$input[1]' are: '$primes_as_string'<br>" : print "&emsp;'$line' does not contain valid inputs!<br>";
             }
             else 
             {
@@ -67,9 +67,10 @@
                 [0,5, false], // 0 shouldn't be taken as input
                 [5,0, false],
                 [1,1, false], // inputs should not be the same
+                [-1, -456, false], // negatives should not be taken as input 
                 // ugly cases
                 ["Hello", "World", false],
-                [1.0, 3.14159265, false],
+                [1.1, 3.14159265, false],
                 [1, false, false],
                 [true, 10, false],
                 [null, null, false]
@@ -79,11 +80,11 @@
                 // since booleans aren't printed as their values, I have to check and extract their values as strings.
                 $arg1 = (!is_bool($test_case[0])) ? $test_case[0] : var_export($test_case[0],true); 
                 $arg2 = (!is_bool($test_case[1])) ? $test_case[1] : var_export($test_case[1],true);
-                echo "What are all the prime numbers between ".$arg1." and ".$arg2."?";
+                echo "What are all the prime numbers between ".$arg1." and ".$arg2."?<br>";
                 // find the actual result
                 $actual = self::primesInRange($test_case[0],$test_case[1]);
                 // print actual result
-                echo "<br>Output from primesInRange(".$test_case[0].",".$test_case[1].")"." = ".$actual.". <b>Does it pass?</b>";
+                echo "&emsp;Output from primesInRange(".$test_case[0].", ".$test_case[1].")"." = ".$actual.".<br>&emsp;<b>Does it pass?</b>";
                 // determine if result passes the test by checking if the length of the result string is greater than 0 and if that is the expected result
                 strlen($actual) > 0 === $test_case[2] ? print "<b> Yes</b><br>" : print "<b> No</b><br>" ;
             }
@@ -96,24 +97,24 @@
             // both parameters must be integers
             if (!is_int($a)) 
             {
-                echo var_export($a, true)." is not an integer!";
+                echo var_export($a, true)." is not an integer!<br>";
                 return "";
             }
             if (!is_int($b))
             {
-                echo var_export($b, true)." is not an integer!";
+                echo var_export($b, true)." is not an integer!<br>";
                 return "";
             }
             // both parameters must be greater than 0
             if (($a < 1) || ($b < 1)) 
             {
-                echo "Only positive, non-zero inputs are allowed!";
+                echo "Only positive, non-zero inputs are allowed!<br>";
                 return "";
             }
             // there must exist a range of whole numbers between the 2 parameters
             if (abs($a - $b) < 2) 
             {
-                echo "The range between the inputs does not include whole numbers";
+                echo "The range between the inputs does not include whole numbers!<br>";
                 return "";
             }
             // brute force for prime numbers in the range of the 2 parameters
