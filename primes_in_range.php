@@ -7,11 +7,10 @@
     $pf->run_tests();
     // Create file input form
     echo <<<_END
-        <br>
+        <html><head><title>Assignment 2</title></head><body>
         <div class="file-upload-wrapper">
             <form action="primes_in_range.php" method="post" enctype="multipart/form-data">
                 Select file: <input type="file" name="upload">
-                <br>
                 <input type="submit" value="Upload">
             </form>
         </div>
@@ -19,40 +18,32 @@
     // begin processing file input here
     if ($_FILES)
     {
-        // access file name
-        $file_name = $_FILES["upload"]["name"];
-        // store file onto file system
-        move_uploaded_file($_FILES["upload"]["tmp_name"], __DIR__."/".$file_name);
-        // begin reading from the file
-        if (file_exists($file_name)) // check if file exists
+        // access file name via its temporary name, any read from $_FILES should be sanitized
+        $file_name = htmlentities($_FILES["upload"]["tmp_name"]);
+        // open the file in read mode
+        $file_handle = fopen($file_name, 'r') or die("Failed to open '$file_name'");
+        // read line by line
+        while ($line = htmlentities(fgets($file_handle))) // reads the line, sanitizes it, and continues the loop if it is not empty
         {
-            // open the file in read mode
-            $file_handle = fopen($file_name, 'r') or die("Failed to open '$file_name'");
-            // read line by line
-            $line = fgets($file_handle);
-            while (!feof($file_handle)) // until end of file hasn't been reached
+            // split the line by spaces
+            $input = explode(" ", $line);
+            // ensure that there will be 2 numbers per line
+            if ($input && (count($input) === 2))
             {
-                // split the line by spaces
-                $input = explode(" ", $line);
-                // ensure that there will be 2 numbers per line
-                if ($input && (count($input) === 2))
-                {
-                    // call the primesInRange function with the input numbers as arguments
-                    $primes_as_string = $pf->primesInRange(intval($input[0]), intval($input[1]));
-                    // output the result
-                    echo "All the primes in the range between '$input[0]' and '$input[1]' are: '$primes_as_string'<br>";
-                }
-                else 
-                {
-                    echo "'$line' is not in valid input format!";
-                }
+                // call the primesInRange function with the input numbers as arguments
+                $primes_as_string = $pf->primesInRange(intval($input[0]), intval($input[1]));
                 // output the result
-                $line = fgets($file_handle);
+                strlen($primes_as_string) !== 0 ? print "All the primes in the range between '$input[0]' and '$input[1]' are: '$primes_as_string'<br>" : print " '$line' does not contain valid inputs!";
             }
-            // close the file
-            fclose($file_handle);
+            else 
+            {
+                echo "'$line' does not have valid format!";
+            }
         }
+        // close the file
+        fclose($file_handle);
     }
+    echo "</body></html>";
     // CLASS DEFINITIONS
     class PrimesFinder // will be used to determine all primes between 2 numbers
     {
@@ -80,7 +71,8 @@
                 ["Hello", "World", false],
                 [1.0, 3.14159265, false],
                 [1, false, false],
-                [true, 10, false]
+                [true, 10, false],
+                [null, null, false]
             ];
             // iterate over test cases and run each test case
             foreach($test_cases as $test_case){
@@ -93,7 +85,7 @@
                 // print actual result
                 echo "<br>Output from primesInRange(".$test_case[0].",".$test_case[1].")"." = ".$actual.". <b>Does it pass?</b>";
                 // determine if result passes the test by checking if the length of the result string is greater than 0 and if that is the expected result
-                strlen($actual) > 0 === $test_case[2] ? print "<b> Yes</b><br>" : "<b> No</b><br>" ;
+                strlen($actual) > 0 === $test_case[2] ? print "<b> Yes</b><br>" : print "<b> No</b><br>" ;
             }
         }
 
@@ -104,24 +96,24 @@
             // both parameters must be integers
             if (!is_int($a)) 
             {
-                echo "<br>".var_export($a, true)." is not an integer!";
+                echo var_export($a, true)." is not an integer!";
                 return "";
             }
             if (!is_int($b))
             {
-                echo "<br>".var_export($b, true)." is not an integer!";
+                echo var_export($b, true)." is not an integer!";
                 return "";
             }
             // both parameters must be greater than 0
             if (($a < 1) || ($b < 1)) 
             {
-                echo "<br>Only positive, non-zero inputs are allowed!";
+                echo "Only positive, non-zero inputs are allowed!";
                 return "";
             }
             // there must exist a range of whole numbers between the 2 parameters
             if (abs($a - $b) < 2) 
             {
-                echo "<br>The range between the inputs does not include whole numbers";
+                echo "The range between the inputs does not include whole numbers";
                 return "";
             }
             // brute force for prime numbers in the range of the 2 parameters
