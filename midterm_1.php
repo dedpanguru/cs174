@@ -3,15 +3,16 @@
     // create form input
     echo <<<_END
     <html><head><title>Midterm 1</title></head><body>
-        <h1>This is a Gurveer Singh Production. If someone else submitted this, clearly they were too lazy to diligently do their work and decided to steal/cheat instead.</h1>
-        <form action="primes_in_range.php" method="post" enctype="multipart/form-data">
-            Select file: <input type="file" name="upload">
-            <input type="submit" value="Upload">
-        </form>
+    <h1><u>This is a Gurveer Singh Production.</u></h1>
+    <form action="midterm_1.php" method="post" enctype="multipart/form-data">
+    Select file: <input type="file" name="upload">
+    <input type="submit" value="Upload">
+    </form>
     _END;
     // handle form input
-    if (isset($_FILES))
+    if ($_FILES)
     {
+        echo "<div>";
         // verify file extension
         if (htmlentities($_FILES["upload"]["type"]) === "text/plain") // text/plain is the mimetype for txt files
         {
@@ -22,27 +23,110 @@
             // create an instance of the MatrixSolver class from the body data
             $solver = new MatrixSolver($contents);
             // get solution
-            $solution = $helper->solve();
+            $solution = $solver->solve();
             // print solution
-            echo "The highest product in a 20x20 matrix of 4 adjacent numbers across rows, columns, and diagonals is ".$solution.'<br>';
-        } else {
+            echo "The highest product in a 20x20 matrix of 4 adjacent numbers across rows, columns, and diagonals is <b>".$solution.'</b><br>';
+        } 
+        else 
+        {
             echo "Unsupported file extension!<br>";
         }
+        echo "</div>";
     }
+    echo "<h2><u>Pre-configured test suite below</u></h2>";
+    // create and call tester function
+    function run_test(string $input, int $expected)
+    {
+        echo "<h3>Expecting output value ".$expected." from input string: ".$input."</h3>";
+        $matrix_solver = new MatrixSolver($input);
+        $matrix = $matrix_solver->get_matrix();
+        echo "Created matrix: ".MatrixSolver::array_to_string($matrix)."<br>";
+        // verify matrix is 20x20
+        if (count($matrix) !== 20)
+        {
+            echo "<b>Matrix does not have 20 rows</b><br>";
+            return;
+        }
+        foreach ($matrix as $row)
+        {
+            if (!is_array($row))
+            {
+                echo "<b>rows are not in the form of an array</b><br>";
+                return;
+            }
+            if (count($matrix) !== 20)
+            foreach ($row as $col)
+            {
+                if ($col > 0)
+                {
+                    echo "<b>Matrix should be all 0s, but it is not</b><br>";
+                    return;
+                }
+            }
+        }
+        // solve the matrix
+        $solution = $matrix_solver->solve();
+        echo "Generated solution = ".$solution."<br>";
+        // output test success
+        ($solution !== $expected) ? print "<b>Test Failed! Expected solution = ".$expected."</b><br>" : print "<b>Passed test for input: ".$input."</b><br>";
+    }
+    // create test cases, format = [input as string, expected output as integer]
+    $test_cases = [
+        ["", 0],
+        [str_repeat("1", 400), 1],
+        [" 1234", 24],
+        ["1234", 24],
+        ["a?!4 5 F", 0],
+        ["-1", 0],
+        ["&nbsp;",0],
+        ["
+        71636269561882670428
+        85861560789112949495
+        65727333001053367881
+        52584907711670556013
+        53697817977846174064
+        83972241375657056057
+        82166370484403199890
+        96983520312774506326
+        12540698747158523863
+        66896648950445244523
+        05886116467109405077
+        16427171479924442928
+        17866458359124566529
+        24219022671055626321
+        07198403850962455444
+        84580156166097919133
+        62229893423380308135
+        73167176531330624919
+        30358907296290491560
+        70172427121883998797", 5832]
+    ];
+    // run the tests
+    foreach ($test_cases as $test_case)
+    {
+        run_test($test_case[0], $test_case[1]);
+    }
+    // end the html code
     echo "</body></html>";
 
     // CLASS DEFINITIONS START HERE
     class MatrixSolver {
 
-        private $matrix; // will hold the 20x20 matrix
+        private array $matrix = []; // will hold the 20x20 matrix
 
         // Constructor - requires a string parameter to construct the matrix from
         public function __construct(string $content)
         {
             // get the first 400 characters
             $data = $this->get_first_400($content);
-            // add rows to the the matrix field in-place
+            // add rows to the the matrix
             $this->generate_matrix_from_data($data);
+        }
+
+        // getter for matrix field, keeping matrix as read-only
+        public function get_matrix(): array
+        {
+            return $this->matrix;
         }
 
         // preprocessing helper function that extracts a 400-character string from raw file contents
@@ -51,20 +135,19 @@
             // get first 400 characters
             $data = "";
             $i = 0;
-            while (strlen($data) < 400 && $i < strlen($content)) 
+            // remove \n, \r, and " " from content, effectively ignoring whitespace and newlines
+            $content = str_replace([" ", "\r", "\n"], "", $content);
+            while ((strlen($data) < 400) && ($i < strlen($content))) 
             {
-                if ($content[$i] !== "\n" || $content[$i] !== " ") { // ignore whitespace and newlines
-                    // convert alphabetic characters to 0
-                    if (!is_numeric($content[$i])) {
-                        echo "Found ".$content[$i].", replacing it with 0<br>";
-                        $content[$i] = "0";
-                    }
-                    // only consider numbers
-                    if (is_numeric($content[$i]))
-                    {
-                        $data .= $content[$i];
-                    }
+                // convert alphabetic characters to 0
+                if (!is_numeric($content[$i])) {
+                    echo "Found ".$content[$i].", replacing it with 0<br>";
+                    $content[$i] = "0";
                 }
+                // only consider numbers
+                if (is_numeric($content[$i]))
+                    $data .= $content[$i];
+                // move to the next character in the string
                 $i++;
             }
             // pad with 0s until data length is 400 characters
@@ -90,14 +173,12 @@
             }
         }
 
+        // helper function that determines the highest product of 4 adjacent number in each row, column, and diagonal of the matrix
         public function solve(): int
         {
             $max_of_rows = $this->max_from_rows();
-            echo "The highest product of 4 adjacent numbers in a row is ".$max_of_rows.'<br>';
             $max_of_cols = $this->max_from_columns();
-            echo "The highest product of 4 adjacent numbers in a column is ".$max_of_cols.'<br>';
             $max_of_diags = $this->max_from_diagonals();
-            echo "The highest product of 4 adjacent numbers in a diagonal is ".$max_of_diags.'<br>';
             return max($max_of_rows, $max_of_cols, $max_of_diags);
         }
 
@@ -105,25 +186,32 @@
         private function max_from_rows(): int
         {
             // assumes matrix is 20x20
-            $max = 0;
+            $max = [0,[],0]; // weird structure exists for a reason [row number of solution, [the four numbers that form the product], the product]
             for ($row = 0; $row < 20; $row++)
             {
                 // sliding window of size 4 going left to right along rows
                 for ($col = 3; $col < 20; $col++)
                 {
-                    $product = $this->matrix[$row][$col] * $this->matrix[$row][$col-1] * $this->matrix[$row][$col-2] * $this->matrix[$row][$col - 3];
-                    if ($product > $max[1]) 
-                        $max = $product;
+                    $product = $this->matrix[$row][$col] * $this->matrix[$row][$col-1] * $this->matrix[$row][$col-2] * $this->matrix[$row][$col-3];
+                    if ($product > $max[2])
+                    {
+                        $max = [
+                            $row+1,
+                            [$this->matrix[$row][$col-3], $this->matrix[$row][$col-2],  $this->matrix[$row][$col-1], $this->matrix[$row][$col]],
+                            $product
+                        ];
+                    }
                 }
             }
-            return $max;
+            echo "The highest product of 4 adjacent numbers across the rows is ".$max[2].", which is the product of the values: ".MatrixSolver::array_to_string($max[1])." found in row ".$max[0]."<br>";
+            return $max[2];
         }
 
         // helper function to find 4 adjacent numbers in all columns of the matrix that have the highest product
         private function max_from_columns(): int
         {
             // assumes matrix is 20x20
-            $max = 0;
+            $max = [0,[],0];
             for ($col = 0; $col < 20; $col++)
             {
                 // sliding window of size 4 going top to bottom along the columns
@@ -132,39 +220,55 @@
                     // find the window's product
                     $product = $this->matrix[$row][$col] * $this->matrix[$row-1][$col] * $this->matrix[$row-2][$col] * $this->matrix[$row-3][$col];
                     // check if it is bigger than the maximum product so far and reassign the maximum accordingly
-                    if ($product > $max) 
-                        $max = $product;
+                    if ($product > $max[2])
+                    {
+                        $max = [
+                            $row+1,
+                            [$this->matrix[$row-3][$col], $this->matrix[$row-2][$col],  $this->matrix[$row-1][$col], $this->matrix[$row][$col]],
+                            $product
+                        ];
+                    }
                 }
             }
-            return $max;
+            echo "The highest product of 4 adjacent numbers across the columns is ".$max[2].", which is the product of the values: ".MatrixSolver::array_to_string($max[1])." found in column ".$max[0]."<br>";
+            return $max[2];
         }
 
         // helper function to find 4 adjacent numbers in all diagonals of the matrix that have the highest product
         private function max_from_diagonals(): int
         {
             // assumes matrix is 20x20
-            $max = 0;
-            $diag = $this->top_left_to_bottom_right_diagonal();
-            // sliding window of size 4 going left to right along the array
+            $max = [0,[],0];
+            $diag1 = $this->top_left_to_bottom_right_diagonal();
+            $diag2 = $this->bottom_left_to_top_right_diagonal();
+            // 1 sliding window of size 4 going left to right along BOTH DIAGONALS
             for ($i = 3; $i < 20; $i++)
             {
-                // find the window's product
-                $product = $diag[$i] * $diag[$i-1] * $diag[$i-2] * $diag[$i-3];
+                // find the window's product for top left to bottom right diagonal
+                $product = $diag1[$i] * $diag1[$i-1] * $diag1[$i-2] * $diag1[$i-3];
                 // check if it is bigger than the maximum product so far and reassign the maximum accordingly
-                if ($product > $max) 
-                    $max = $product;
-            }
-            $diag = $this->bottom_left_to_top_right_diagonal();
-            // sliding window of size 4 going left to right along the array
-            for ($i = 3; $i < 20; $i++)
-            {
-                // find the window's product
-                $product = $diag[$i] * $diag[$i-1] * $diag[$i-2] * $diag[$i-3];
+                if ($product > $max[2])
+                {
+                    $max = [
+                        1,
+                        [$diag1[$i-3], $diag1[$i-2], $diag1[$i-1], $diag1[$i]],
+                        $product
+                    ];
+                }
+                // find the window's product for bottom left to top right diagonal
+                $product = $diag2[$i] * $diag2[$i-1] * $diag2[$i-2] * $diag2[$i-3];
                 // check if it is bigger than the maximum product so far and reassign the maximum accordingly
-                if ($product > $max) 
-                    $max = $product;
+                if ($product > $max[2])
+                {
+                    $max = [
+                        1,
+                        [$diag2[$i-3], $diag2[$i-2], $diag2[$i-1], $diag2[$i]],
+                        $product
+                    ];
+                }
             }
-            return $max;
+            echo "The highest product of 4 adjacent numbers across the diagonals is ".$max[2].", which is the product of the values: ".MatrixSolver::array_to_string($max[1])." found in diagonal ".$max[0]."<br>";
+            return $max[2];
         }
 
         // getter/helper function that retrieves top left to bottom right diagonal of the matrix as an array
@@ -184,24 +288,21 @@
         public function bottom_left_to_top_right_diagonal(): array
         {
             $diagonal = [];
-            // top left to bottom right includes row/col values such as [0,19], [1,18], ..., [19,0] -> row + col === 20, thus if you have the row, you know which column contains the the diagonal (col = 20 - row)
+            // top left to bottom right includes row/col values such as [0,19], [1,18], ..., [19,0] -> row + col === 19, thus if you have the row, you know which column contains the the diagonal (col = 19 - row)
             for ($i = 0; $i < 20; $i++)
             {
-                array_push($diagonal, $this->matrix[$i][20-$i]);
+                array_push($diagonal, $this->matrix[$i][19-$i]);
             }
             echo "The bottom left to top right diagonal contains the values: ".$this->array_to_string($diagonal)."<br>";
             return $diagonal;
         }
 
-        // helper function that converts arrays to a csv string
+        // helper static function that converts arrays to a csv string
         public static function array_to_string(array $arr): string 
         {
             $string_builder = "[";
             for($i = 0; $i < count($arr); $i++){
-                if (is_array($arr[$i])){
-                    $string_builder .= MatrixSolver::array_to_string($arr[$i]);
-                }
-                $string_builder .= strval($arr[$i]);
+                $string_builder .= (is_array($arr[$i])) ? MatrixSolver::array_to_string($arr[$i]): var_export($arr[$i],true);
                 if ($i < count($arr) - 1)
                     $string_builder .= ", ";
             }
