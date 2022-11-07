@@ -1,17 +1,17 @@
 <?php
-    require_once 'helpers.php';
+    require_once 'helpers.php'; // contains the get_fatal_error_message function
     
-    define('HASH_SIZE', 32);
+    define('SALT_SIZE', 32);
     define('HASH_ALG', 'ripemd128');
     define('INSERT_NEW_CREDS', 'INSERT INTO credentials VALUES (NULL, ?, ?, ?)');
-    define('GET_TRUE_IF_USERNAME_IN_DB', "SELECT TRUE FROM credentials WHERE username = '?'");
 
     class Credentials 
     {
         private string $username, $hashed_password, $salt;
         private int $id = 0;
 
-        public function __construct(string $username, string $password, string $salt = "", int $id = 0) {
+        public function __construct(string $username, string $password, string $salt = "", int $id = 0) 
+        {
             $this->username = $username;
             $this->set_password($password, $salt);
             if (!empty($id)) $this->id = $id;
@@ -52,22 +52,24 @@
             $possible_chars = "qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM,.?!$@#%^&*";
             $pieces = [];
             $max = mb_strlen($possible_chars, '8bit') -1;
-            for ($i = 0; $i < HASH_SIZE; $i++)
+            for ($i = 0; $i < SALT_SIZE; $i++)
             {
                 $pieces []= $possible_chars[random_int(0, $max)];
             }
             return implode('', $pieces);
         }
 
-        public static function username_in_db(mysqli $conn, string $username): bool
+        public static function get_id_from_username(mysqli $conn, string $username): int | null
         {
-            $stmt = $conn->prepare(GET_TRUE_IF_USERNAME_IN_DB);
-            $stmt->bind_param('s', $username);
-            $success = $stmt->execute();
-            if (!$success) die(get_fatal_error_message());
-            $rows = $stmt->num_rows();
-            $stmt->close();
-            return $rows === 1;
+            $query = "SELECT id FROM credentials WHERE username = '$username'";
+            $result = $conn->query($query);
+            if (!$result) die(get_fatal_error_message());
+            $result->data_seek(0);
+            $row = $result->fetch_array(MYSQLI_ASSOC);
+            $id = $row['id'];
+            $result->close();
+            if (isset($id)) return $id;
+            else return null;
         }
 
         public function insert(mysqli $conn): bool

@@ -5,6 +5,8 @@ services:
       context: .
       dockerfile: ./Dockerfile
     container_name: php
+    volumes:
+      - ./media:/var/www/html/media:rw 
     ports:
       - 80:80
       - 443:443
