@@ -1,10 +1,11 @@
 <?php
+    session_start();
     if (isset($_SESSION['username']))
     {
-
+        echo "Hello user!";
     }
     else {
-        header('Location: http://localhost/auth.php');
+        header('Location: ./auth.php');
         die();
     }
 ?>

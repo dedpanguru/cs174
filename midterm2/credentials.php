@@ -10,17 +10,18 @@
         private string $username, $hashed_password, $salt;
         private int $id = 0;
 
-        public function __construct(string $username, string $password, string $salt = "", int $id = 0) 
+        public function __construct(string $username, string $password, bool $auto_hash = true, string $salt = "", int $id = 0) 
         {
             $this->username = $username;
-            $this->set_password($password, $salt);
+            $this->hashed_password = $password;
+            $this->salt = (empty($salt)) ? $this::generate_salt() : $salt;
+            if ($auto_hash) $this->hash_password();
             if (!empty($id)) $this->id = $id;
         }
 
-        public function set_password(string $password, string $salt = "")
+        public function hash_password()
         {
-            $this->salt = (!empty($salt)) ? $salt : $this::generate_salt();
-            $this->hashed_password = hash(HASH_ALG, $password.$this->salt);
+            $this->hashed_password = hash(HASH_ALG, $this->hashed_password.$this->salt);
         }
 
         public function get_id()
@@ -42,9 +43,31 @@
             return $this->salt;
         }
 
-        public function compare(string $input_password): bool
+        public function compare_password(string $input_password): bool
         {
             return $this->hashed_password === hash(HASH_ALG, $input_password.$this->salt);
+        }
+
+        public static function get_prompt(string $section, string $pagename): string
+        {
+            $prompt = '';
+            switch ($section){
+                case 'Login':
+                case 'Register':
+                    $prompt = <<<_END
+                    <pre><h2>$section</h2>
+                    <form action="$pagename" method="post" enctype="multipart/form-data">
+                        Enter Username: <input type="text" name="username" required>
+                    
+                        Enter Password: <input type="password" name="password" required>
+                        <input type="hidden" name="$section" value="true">
+                        <input type="submit" value="$section">
+                    </form>
+                    </pre>
+                    _END;
+                    break;
+            }
+            return $prompt;
         }
 
         public static function generate_salt(): string 
@@ -66,10 +89,9 @@
             if (!$result) die(get_fatal_error_message());
             $result->data_seek(0);
             $row = $result->fetch_array(MYSQLI_ASSOC);
-            $id = $row['id'];
+            $id = (isset($row['id'])) ? $row['id'] : null;
             $result->close();
-            if (isset($id)) return $id;
-            else return null;
+            return $id;
         }
 
         public function insert(mysqli $conn): bool
@@ -78,7 +100,7 @@
             $stmt->bind_param('sss', $this->username, $this->hashed_password, $this->salt);
             $success = $stmt->execute();
             if (!$success) die(get_fatal_error_message());
-            $rows = $stmt->num_rows();
+            $rows = $stmt->affected_rows;
             $stmt->close();
             return $rows === 1;
         }
@@ -93,7 +115,7 @@
             {
                 $result->data_seek(0);
                 $row = $result->fetch_array(MYSQLI_ASSOC);
-                $creds = new Credentials($row['username'], $row['password'], $row['salt'], $row['id']);
+                $creds = new Credentials($row['username'], $row['password'], false, $row['salt'], $row['id']);
             } 
             $result->close();
             return $creds;
