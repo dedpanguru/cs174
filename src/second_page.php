@@ -1,5 +1,5 @@
 <?php
-    require_once 'login.php'; // needs get_fatal_error_message(), $db_hostname, $db_username, $db_password, $db_name, sanitize(), and redirect()
+    require_once 'login.php'; // needs get_fatal_error_message(), $db_hostname, $db_username, $db_password, $db_name, sanitize(), Credentials class, and redirect()
     // attempt database connection
     try
     {
@@ -12,7 +12,7 @@
 
     // DRIVER CODE STARTS HERE
     // handle any login or registration requests
-    if (isset($_POST['email']) && isset($_POST['password']))
+    if (isset($_POST['id']) && isset($_POST['password']))
     {
         $error = analyze_post($conn);
         if(!empty($error)) echo "<h1 style='color:red'>$error</h1>";
@@ -47,9 +47,9 @@
     {
         try 
         {
-            // validate email
-            $input_email = sanitize($conn, $_POST['email']);
-            validateEmail($input_email);
+            // validate id
+            $input_id = (isset($_POST['id'])) ? sanitize($conn, $_POST['id']) : throw new Exception('Invalid ID!');
+            validateID($input_id);
 
             // validate password 
             $input_password = sanitize($conn, $_POST['password']);
@@ -57,19 +57,16 @@
 
             if (isset($_POST['Register']) && $_POST['Register'] === 'true') // Register case
             {
-                // validate email is unique
-                $input_id = (isset($_POST['id'])) ? sanitize($conn, $_POST['id']): throw new Exception('Invalid ID!');
-                validateID($input_id);
-
-                if (!Credentials::check_id_exists($conn, $input_id))
+                // ensure student does not exist already
+                if (!Credentials::find($conn, $input_id))
                 {
                     // validate name
                     $input_name = (isset($_POST['name'])) ? sanitize($conn, $_POST['name']) : throw new Exception('Invalid Name!');
                     validateName($input_name);
 
-                    // validate id
-                    $input_id = (isset($_POST['id'])) ? sanitize($conn, $_POST['id']) : throw new Exception('Invalid ID!');
-                    validateID($input_id);
+                    // validate email
+                    $input_email = sanitize($conn, $_POST['email']);
+                    validateEmail($input_email);
 
                     // submit the credentials
                     $creds = new Credentials($input_name, $input_password, $input_email, $input_id);
@@ -81,9 +78,9 @@
             else if (isset($_POST['Login']) && $_POST['Login'] === 'true') // Login case
             {
                 // get the credentials from the database
-                $creds = Credentials::find($conn, $input_email);
+                $creds = Credentials::find_from_id($conn, $input_id);
                 // verify the input password
-                if ($creds->compare_password($input_password)) throw new Exception('Invalid email!');
+                if (!$creds->compare_password($input_password)) throw new Exception('Invalid credentials!');
             }
         }
         catch (Exception $e)
@@ -92,173 +89,99 @@
         }
         return '';
     }
-
-    function validateName(string $name)
-    {
-        if (strlen($name) == 0) throw new Exception('Invalid Name');
-    }
-
-    function validateID(string $id)
-    {
-        if (!is_numeric($id)) throw new Exception('Invalid ID!');
-        if (intval($id) <= 0) throw new Exception('Invalid ID!');
-    }
-
-    function validatePassword(string $password)
-    {
-        if (strlen($password) < 6) throw new Exception('Password length too small!');
-        elseif (!preg_match('/[a-z]/', $password) ||
-                !preg_match('/[A-Z]/', $password) ||
-                !preg_match('/[0-9]/', $password))
-                throw new Exception('Passwords require 1 of each: lowercase character, uppercase character, and digit');        
-    }
-
-    function validateEmail(string $email)
-    {
-        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) throw new Exception('Invalid Email!');
-    }
-
-    class Credentials 
-    {
-        private string $name, $hashed_password, $salt, $email;
-        private int $id;
-
-        public function __construct(string $name, string $password, string $email, int $id, bool $auto_hash = true, string $salt = "") 
-        {
-            $this->name = $name;
-            $this->hashed_password = $password;
-            $this->email = $email;
-            $this->id = $id;
-            $this->salt = (empty($salt)) ? $this::generate_salt() : $salt;
-            if ($auto_hash) $this->hash_password();
-        }
-
-        public function hash_password(string $salt = '')
-        {
-            if (empty($salt)) $salt = $this->salt; 
-            $this->hashed_password = hash('ripemd128', $this->hashed_password.$salt);
-        }
-
-        public function compare_password(string $input_password): bool
-        {
-            return $this->hashed_password === hash('ripemd128', $input_password.$this->salt);
-        }
-
-        public static function get_prompt(string $section, string $pagename): string
-        {
-            $prompt = '';
-            switch ($section){
-                case 'Login':
-                    $prompt = <<<_END
-                    <pre><h2>$section</h2>
-                    <form action="$pagename" method="post" enctype="multipart/form-data">
-                        Enter Email: <input type="email" name="email" required>
-                        
-                        Enter Password: <input type="password" name="password" required>
-                        <input type="hidden" name="$section" value="true">
-                        <input type="submit" value="$section">
-                    </form>
-                    </pre>
-                    _END;
-                    break;
-                case 'Register':
-                    $prompt = <<<_END
-                    <pre><h2>$section</h2>
-                    <form action="$pagename" method="post" enctype="multipart/form-data">
-                        Enter Full Name: <input type="text" name="name" required>
-                        
-                        Enter Email: <input type="email" name="email" required>
-                        
-                        Enter Student ID: <input type="number" name="id" required>
-                        
-                        Enter Password: <input type="password" name="password" required>
-                        <input type="hidden" name="$section" value="true">
-                        <input type="submit" value="$section">
-                    </form>
-                    </pre>
-                    _END;
-                    break;
-            }
-            return $prompt;
-        }
-
-        public static function generate_salt(): string 
-        {
-            $possible_chars = "qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM,.?!$@#%^&*";
-            $pieces = [];
-            $max = mb_strlen($possible_chars, '8bit') - 1;
-            for ($i = 0; $i < 32; $i++)
-            {
-                $pieces []= $possible_chars[random_int(0, $max)];
-            }
-            return implode('', $pieces);
-        }
-
-        public static function check_id_exists(mysqli $conn, string $id): bool
-        {
-            $query = "SELECT id FROM credentials WHERE id = '$id'";
-            $result = $conn->query($query);
-            if (!$result) die(get_fatal_error_message());
-            $exists = $result->num_rows == 1;
-            $result->close();
-            return $exists;
-        }
-
-        public function insert(mysqli $conn): bool
-        {
-            $stmt = $conn->prepare("INSERT INTO credentials VALUES (?, ?, ?, ?, ?)");
-            $stmt->bind_param('sssss', $this->id, $this->name, $this->email, $this->hashed_password, $this->salt);
-            $success = $stmt->execute();
-            if (!$success) die(get_fatal_error_message());
-            $rows = $stmt->affected_rows;
-            $stmt->close();
-            return $rows === 1;
-        }
-
-        public static function find(mysqli $conn, string $email): Credentials|null
-        {
-            $query = "SELECT * FROM credentials WHERE email = '$email'";
-            $result = $conn->query($query);
-            if (!$result) die(get_fatal_error_message());
-            $creds = null;
-            if ($result->num_rows === 1)
-            {
-                $result->data_seek(0);
-                $row = $result->fetch_array(MYSQLI_ASSOC);
-                $creds = new Credentials($row['name'], $row['password'], $row['email'], $row['id'], false, $row['salt']);
-            } 
-            $result->close();
-            return $creds;
-        }
-    }
 ?>
 
 <script>
-    fail = validate
+    // access the form
+    let registerForm = document.getElementById('Register')
+    // provide a callback to the submit event to add client-side validation
+    registerForm.addEventListener('submit', (event) => {
+        // validate the form values
+        if (!validateRegistration(registerForm))
+            // if the values are invalid, prevent the submission
+            event.preventDefault()
+    })
+    let loginForm = document.getElementById('Login')
+    loginForm.addEventListener('submit', (event) => {
+        if (!validateLogin(loginForm))
+            event.preventDefault()
+    })
 
+    function validateRegistration(form) 
+    {
+        id = form.id.value
+        name = form.name.value
+        email = form.email.value
+        password = form.password.value
+        toValidate = [
+            [name, validateName],
+            [email, validateEmail],
+            [id, validateID],
+            [password, validatePassword]
+        ]
+        fail = ''
+        for (const [input, validationFunc] of toValidate)
+        {   
+            fail += validationFunc(input)
+            if (fail.length > 0) 
+            {
+                alert(fail)
+                return false
+            }
+        }
+        return true
+    }
+
+    function validateLogin(form) 
+    {
+        id = form.id.value
+        password = form.password.value
+        toValidate = [
+            [id, validateID],
+            [password, validatePassword]
+        ]
+        fail = ''
+        for (const [input, validationFunc] of toValidate) 
+        {
+            fail += validationFunc(input)
+            if (fail.length > 0) 
+            {
+                alert(fail)
+                return false
+            }
+        }
+        return true
+    }
+
+    // all inputs are required to submit so no input can have no length
     function validateName(name)
     {
         if (name.length == 0) 
             return 'Invalid Name'
+        return ''
     }
 
     function validateID(id)
     {
         if (isNaN(id))
             return 'Invalid ID'
+        return ''
     }
 
     function validatePassword(password)
     {
-        if (strlen(password) < 6) throw new Exception('Password length too small!');
-        elseif (!preg_match('/[a-z]/', password) ||
-                !preg_match('/[A-Z]/', password) ||
-                !preg_match('/[0-9]/', password))
-                throw new Exception('Passwords require 1 of each: lowercase character, uppercase character, and digit');        
+        if (password.length < 6) return 'Password length too small!'
+        else if (!/[a-z]/.test(password) ||
+                !/[A-Z]/.test(password) ||
+                !/[0-9]/.test(password))
+                return 'Passwords require 1 of each: lowercase character, uppercase character, and digit'
+        return ''        
     }
 
     function validateEmail(email)
     {
-        if (!filter_var(email, FILTER_VALIDATE_EMAIL)) throw new Exception('Invalid Email!');
+        // check for presense of a period
+        if (/(^\w.*@\w+\.\w)/.test(input)) return 'Invalid Email!'
+        return ''
     }
 </script>
