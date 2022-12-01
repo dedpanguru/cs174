@@ -1,5 +1,8 @@
 <?php
-    require_once 'login.php'; // needs get_fatal_error_message(), $db_hostname, $db_username, $db_password, $db_name, sanitize(), Credentials class, and redirect()
+    require_once 'login.php'; // imports $db_hostname, $db_username, $db_password, $db_name, 
+    require_once 'helpers.php'; // imports sanitize(), redirect(), get_fatal_error_message(), SESSION_LIFETIME_IN_SECONDS
+    require_once 'credentials.php'; // imports Credentials class
+
     // attempt database connection
     try
     {
@@ -18,16 +21,16 @@
         if(!empty($error)) echo "<h1 style='color:red'>$error</h1>";
         else
         {
-             // initialize session
-             ini_set('session.gc_maxlifetime', 60*2);
-             ini_set('session.use_only_cookies', 1);
-             session_start();
-             // store session info
-             $_SESSION['check'] = hash('ripemd128', $_SERVER['REMOTE_ADDR'].$_SERVER['HTTP_USER_AGENT']); // needed for verifying client
-             // commit session info
-             if (!session_commit()) die(get_fatal_error_message());
-             // redirect to first page
-             redirect('first_page.php');
+            // initialize session
+            ini_set('session.gc_maxlifetime', SESSION_LIFETIME_IN_SECONDS);
+            ini_set('session.use_only_cookies', 1);
+            session_start();
+            // store session info
+            $_SESSION['check'] = hash('ripemd128', $_SERVER['REMOTE_ADDR'].$_SERVER['HTTP_USER_AGENT']); // needed for verifying client
+            // commit session info
+            if (!session_commit()) die(get_fatal_error_message());
+            // redirect to first page
+            redirect('first_page.php');
         }
     }
 
@@ -42,7 +45,6 @@
     $conn->close();
 
     // CLASS DEFINITIONS/HELPER FUNCTIONS START HERE
-
     function analyze_post(mysqli $conn): string
     {
         try 
@@ -58,7 +60,7 @@
             if (isset($_POST['Register']) && $_POST['Register'] === 'true') // Register case
             {
                 // ensure student does not exist already
-                if (!Credentials::find($conn, $input_id))
+                if (!Credentials::find_from_id($conn, $input_id))
                 {
                     // validate name
                     $input_name = (isset($_POST['name'])) ? sanitize($conn, $_POST['name']) : throw new Exception('Invalid Name!');
@@ -69,11 +71,11 @@
                     validateEmail($input_email);
 
                     // submit the credentials
-                    $creds = new Credentials($input_name, $input_password, $input_email, $input_id);
+                    $creds = new Credentials($input_name, $input_password, $input_email, $input_id, true, Credentials::generate_unique_salt($conn));
                     $success = $creds->insert($conn);
                     if (!$success) die(get_fatal_error_message());
                 }
-                else throw new Exception('That name is are already registered!');
+                else throw new Exception('Username taken!');
             }
             else if (isset($_POST['Login']) && $_POST['Login'] === 'true') // Login case
             {

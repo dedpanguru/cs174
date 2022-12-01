@@ -1,5 +1,7 @@
 <?php
-    require_once 'login.php'; // needs $db_hostname, $db_username, $db_password, $db_name, get_fatal_error_message(), and force_logout()
+    require_once 'login.php'; // imports $db_hostname, $db_username, $db_password, $db_name
+    require_once 'helpers.php'; // imports get_fatal_error_message(), sanitize(), and force_logout()
+    require_once 'advisor.php'; // imports Advisor class
 
     // DRIVER CODE STARTS HERE
     session_start();
@@ -15,18 +17,14 @@
     {
         die(get_fatal_error_message());
     }
-    // handle any POST requests
-    if (isset($_POST))
+    // handle logout
+    if (isset($_POST['logout']) && $_POST['logout'] === 'true') force_logout('second_page.php');
+    // handle advisor search
+    elseif (isset($_POST['name']) && isset($_POST['id']))
     {
-        // handle logout
-        if (isset($_POST['logout']) && $_POST['logout'] === 'true') force_logout('second_page.php');
-        // handle advisor search
-        elseif (isset($_POST['name']) && isset($_POST['id']))
-        {
-            $input_name = sanitize($conn, $_POST['name']);
-            $input_id = intval(sanitize($conn, $_POST['id']));
-            $advisors = Advisor::get_advisors_from_id($conn, $input_id);
-        }
+        $input_name = sanitize($conn, $_POST['name']);
+        $input_id = intval(sanitize($conn, $_POST['id']));
+        $advisors = Advisor::get_advisors_from_id($conn, $input_id);
     }
     echo <<<_END
     <html>
